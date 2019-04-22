@@ -14,7 +14,11 @@ import hashlib
 ##           div class = propertyCard-images
 ##           a class = propertyCard-additionalImgs href="/property-to-rent/property-(property number).html"
 
-
+## IN RESULT 
+## div class site-wrapper
+## div class clearfix-main
+## div id primarycontent
+## scroll through until div id lettingInformation
 
 
 def parse(username, password):
