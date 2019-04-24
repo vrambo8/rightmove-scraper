@@ -1,74 +1,95 @@
-import json
+
 import requests
-from lxml import html
+import certifi
+import urllib3
 from collections import OrderedDict
 import argparse
 import hashlib
+from datetime import datetime
+
+from bs4 import BeautifulSoup
+import re
+
+import math
+
+# Search in div class=l-propertySearch-results propertySearch-results
+# div id = l-searchResults
+# div if = property-(property number)
+# div class = propertyCard
+# div class = propertyCard-wrapper
+# div class = propertyCard-images
+# a class = propertyCard-additionalImgs href="/property-to-rent/property-(property number).html"
+
+# IN RESULT
+# div class site-wrapper
+# div class clearfix-main
+# div id primarycontent
+# scroll through until div id lettingInformation
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-## Search in div class=l-propertySearch-results propertySearch-results
-##           div id = l-searchResults
-##           div if = property-(property number)
-##           div class = propertyCard
-##           div class = propertyCard-wrapper
-##           div class = propertyCard-images
-##           a class = propertyCard-additionalImgs href="/property-to-rent/property-(property number).html"
+def parse(date, url):
+    
+    availability = datetime.strptime(date, '%d/%m/%Y')
+    suitable_properties = []
 
-## IN RESULT 
-## div class site-wrapper
-## div class clearfix-main
-## div id primarycontent
-## scroll through until div id lettingInformation
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36'}
 
+    url = "https://www.rightmove.co.uk/property-to-rent/find.html?locationIdentifier=USERDEFINEDAREA%5E%7B%22id%22%3A5287605%7D&maxPrice=2500&savedSearchId=28733232&minBedrooms=4"
 
-def parse(username, password):
-    for j in range(5):
-       # try:
-            safe_password = hashlib.sha3_512(password.encode('utf-8')).hexdigest()
+    response = requests.get(url, headers=headers, verify=False)
+
+    soup = BeautifulSoup(response.content, 'html.parser')
+    result_number = int(
+        soup.find('span', {'class': 'searchHeader-resultCount'}).get_text())
+    results = str(soup.find('div', class_='l-searchResults'))
+
+    results = re.findall(
+        r'/property-to-rent/property-[0-9]*\.html', results, re.M | re.I)
+
+    if result_number > 24:
+        page_number = math.ceil(result_number/24)
+
+        for i in range(1, page_number+1):
+            next_page_url = url + '&index=%d' % 24*i
+            next_page_response = requests.get(next_page_url, headers=headers, verify=False)
+            next_page_soup = BeautifulSoup(next_page_response.content, 'html.parser')
+            next_page_results = str(next_page_soup.find('div', class_='l-searchResults'))
+            next_page_results = re.findall(r'/property-to-rent/property-[0-9]*\.html', next_page_results, re.M | re.I)
+            results = results + next_page_results
+
+    url_results = list(set(results))
+    
+    for u in url_results:
+        u = "https://www.rightmove.co.uk/" + u
+        result_response = requests.get(u, headers=headers, verify=False)
+        result_soup = BeautifulSoup(result_response.content, 'html.parser')
+        result_table = result_soup.find('table', {'class': 'table-reset width-100'})
+        result_available_date = result_table.find_all('td')[1].get_text()
+        try:
+            result_available_date = datetime.strptime(result_available_date, '%d/%m/%Y')
             
-            payload = {
-                'email': username,
-                'password': password
-                }
+        except ValueError:
+            result_available_date = datetime.now()
 
-    # Use 'with' to ensure the session context is closed after use.
-            with requests.Session() as s:
-                headers = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36'}
-               # p = s.post('https://www.rightmove.co.uk/login.html', data=payload, headers=headers)
-                #print(p.text)
-                
-                url = "https://www.rightmove.co.uk/property-to-rent/find.html?locationIdentifier=USERDEFINEDAREA%5E%7B%22id%22%3A5287605%7D&maxPrice=2500&savedSearchId=28733232&minBedrooms=4"
-                url_result = "https://www.rightmove.co.uk/property-to-rent/property-29888501.html"
-                response = s.get(url_result, headers=headers, verify=False)
-                parser = html.fromstring(response.text)
-                print(response.text)
-                json_data_xpath = parser.xpath("//script[@id='cachedResultsJson']//text()")
-                raw_json = json.loads(json_data_xpath[0] if json_data_xpath else '')
-                property_data = json.loads(raw_json["content"])
+        if result_available_date >= availability:
+                suitable_properties.append(u)
 
+        
+    return suitable_properties
 
-                property_info = OrderedDict()
-                lists = []
-                
-                
-                print(property_data['legs'])
-                #for i in property_data['legs'].keys():
-
-        #except ValueError:
-        #        print("Retrying...")
-    pass
-    #raise ValueError     
 
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('username', help="Email")
-    argparser.add_argument('password', help="Password")
-    #argparser.add_argument('url', help="URL of result list")
-    
+    argparser.add_argument('date', help="Availability date")
+    argparser.add_argument('url', help="URL of result list")
+
     args = argparser.parse_args()
-    username = args.username
-    password = args.password
-    #url = args.url
+    date = args.date
+    url = args.url
     print("Fetching property details")
-    parse(username, password)
+    properties = parse(date, url)
+    for p in properties:
+        print(p + '\n')
