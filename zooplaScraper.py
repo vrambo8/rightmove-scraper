@@ -8,15 +8,22 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup
 import re
+import pickle
 
 import math
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
-def parse(date, url):    
+def parse(date, new_properties_only=True):    
 
     availability = datetime.strptime(date, '%d/%m/%Y')
     suitable_properties = []
+    new_properties = []
+
+    try:
+        previous_search = pickle.load(open('zoopla-properties.txt', 'rb'))
+    except FileNotFoundError:
+        previous_search = []
 
     headers = {
         'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/42.0.2311.90 Safari/537.36'}
@@ -56,21 +63,35 @@ def parse(date, url):
         if date >= availability:
             property_link = r.find('a', {'class': 'listing-results-price text-price'}, href=True)
             suitable_properties.append('https://www.zoopla.co.uk/' + property_link['href'])
+
+        for s in suitable_properties:
+            if s not in previous_search:
+                new_properties.append(s)
+        
+        previous_search = previous_search + new_properties
+
+    with open('zoopla-properties.txt', 'wb') as f:
+        pickle.dump(previous_search, f)
     
-    return suitable_properties
+    if new_properties_only:
+        return new_properties
+    else:
+        return suitable_properties
 
    
 
 if __name__ == "__main__":
     argparser = argparse.ArgumentParser()
     argparser.add_argument('date', help="Availability date")
-    argparser.add_argument('url', help="URL of result list")
+    #argparser.add_argument('url', help="URL of result list")
 
     args = argparser.parse_args()
     date = args.date
-    url = args.url
-    print("Fetching property details")
-    properties = parse(date, url)
-    
-    for p in properties:
-        print(p + '\n')
+    #url = args.url
+    print("Fetching property details\n")
+    properties = parse(date)
+
+    if properties!=[]:
+        for p in properties:
+            print(p + '\n')
+    else: print("No new properties")

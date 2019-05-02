@@ -1,0 +1,5 @@
+{
+    "python.pythonPath": "/Users/Vitto/VirtualEnvs/housing/bin/python",
+    "python.linting.pylintEnabled": true,
+    "python.linting.enabled": true,
+}
