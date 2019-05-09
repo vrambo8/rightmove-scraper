@@ -9,22 +9,11 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup
 import re
+import smtplib, ssl
 
 import math
 import pickle
-# Search in div class=l-propertySearch-results propertySearch-results
-# div id = l-searchResults
-# div if = property-(property number)
-# div class = propertyCard
-# div class = propertyCard-wrapper
-# div class = propertyCard-images
-# a class = propertyCard-additionalImgs href="/property-to-rent/property-(property number).html"
 
-# IN RESULT
-# div class site-wrapper
-# div class clearfix-main
-# div id primarycontent
-# scroll through until div id lettingInformation
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -90,7 +79,7 @@ def parse(date, new_properties_only = True):
 
     with open('rightmove-properties.txt', 'wb') as f:
         pickle.dump(previous_search, f)
-    
+
     if new_properties_only:
         return new_properties
     else:
@@ -109,7 +98,29 @@ if __name__ == "__main__":
     print("Fetching property details\n")
     properties = parse(date)
 
+    TEXT = ""
+
     if properties!=[]:
         for p in properties:
             print(p + '\n')
-    else: print("No new properties")
+            TEXT = TEXT + '\n' + str(p)
+
+    else: 
+        print("No new properties")
+        TEXT = "No new properties"
+    
+    SUBJECT = "Rightmove New Available Properties"
+
+    message = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
+
+    port = 465  # For SSL
+    smtp_server = "smtp.gmail.com"
+    sender_email = "bob.ross3940@gmail.com"  # Enter your address
+    receiver_email = "vittotre@gmail.com"  # Enter receiver address
+    password = "Tatotoio3940@"
+    
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, message)

@@ -8,9 +8,11 @@ from datetime import datetime
 
 from bs4 import BeautifulSoup
 import re
-import pickle
+import smtplib, ssl
 
 import math
+import pickle
+
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
@@ -91,7 +93,29 @@ if __name__ == "__main__":
     print("Fetching property details\n")
     properties = parse(date)
 
+    TEXT = ""
+
     if properties!=[]:
         for p in properties:
             print(p + '\n')
-    else: print("No new properties")
+            TEXT = TEXT + '\n' + str(p)
+
+    else: 
+        print("No new properties")
+        TEXT = "No new properties"
+    
+    SUBJECT = "Zoopla New Available Properties"
+
+    message = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
+
+    port = 465  # For SSL
+    smtp_server = "smtp.gmail.com"
+    sender_email = "bob.ross3940@gmail.com"  # Enter your address
+    receiver_email = "vittotre@gmail.com"  # Enter receiver address
+    password = "Tatotoio3940@"
+    
+
+    context = ssl.create_default_context()
+    with smtplib.SMTP_SSL(smtp_server, port, context=context) as server:
+        server.login(sender_email, password)
+        server.sendmail(sender_email, receiver_email, message)
